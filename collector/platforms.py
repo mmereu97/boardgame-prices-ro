@@ -3,6 +3,7 @@
 A record is {"url": ..., "payload": {...}}: the payload is kept as the shop published it,
 trimmed of heavy fields we never use (descriptions, images), so the raw layer stays honest.
 """
+import html as htmllib
 import json
 import os
 import re
@@ -143,4 +144,77 @@ def prestashop(shop: Shop, session: PoliteSession, limit: int | None = None) -> 
         cache.save()
 
 
-READERS = {"shopify": shopify, "jsonld_sitemap": jsonld_sitemap, "prestashop": prestashop}
+GOMAG_BOX = re.compile(r'<div\s+class="product-box\s')   # the shop's HTML has newlines and double spaces here
+GOMAG_PRICES = re.compile(r"data-Gomag='(\{[^']*\})'")
+GOMAG_ID = re.compile(r'data-product-id="(\d+)"')
+GOMAG_TITLE = re.compile(r'data-block="ListingName"[^>]*>([^<]+)</a>|class="title[^"]*"[^>]*>([^<]+)</a>')
+GOMAG_URL = re.compile(r'href="([^"]+\.html)"')
+GOMAG_LAST_PAGE = re.compile(r'[?&]p=(\d+)')
+# Words that mark accessories inside the shop's board-games category (sleeves, mats...).
+ACCESSORY_WORDS = re.compile(r"protecti|sleeve|playmat|insert|organiz|zaruri|dice|deck box|suport|album|binder", re.I)
+
+
+def gomag_listing(html: str) -> list[dict]:
+    """The product boxes of one Gomag category page: id, title, url, prices, stock.
+
+    Prices come from the box's data-Gomag JSON; stock from its button: "Adauga in cos" is in
+    stock, "Alerta stoc" (alert me when it is back) is out of stock.
+    """
+    starts = [m.start() for m in GOMAG_BOX.finditer(html)]
+    boxes = []
+    for i, start in enumerate(starts):
+        box = html[start:starts[i + 1] if i + 1 < len(starts) else start + 20000]
+        pid, prices, url = GOMAG_ID.search(box), GOMAG_PRICES.search(box), GOMAG_URL.search(box)
+        title = GOMAG_TITLE.search(box)
+        if not (pid and prices and url and title):
+            continue
+        p = json.loads(prices.group(1))
+        boxes.append({
+            "id": pid.group(1),
+            "name": htmllib.unescape(title.group(1) or title.group(2)).strip(),
+            "url": url.group(1),
+            "price": p.get("Lei_final_price"),
+            "list_price": p.get("Lei_price"),
+            "in_stock": "Adauga in cos" in box and "Alerta stoc" not in box,
+        })
+    return boxes
+
+
+def gomag(shop: Shop, session: PoliteSession, limit: int | None = None) -> Iterator[dict]:
+    """A whole Gomag category from its normal pages (?p=1, 2, ...), 24 products per page.
+
+    The shop's robots.txt disallows its AJAX product loader, so only the HTML pages are read.
+    As for PrestaShop, the barcode is on the product page: read once per game, remembered.
+    """
+    cache = BarcodeCache(cache_dir() / f"{shop.key}_barcodes.json")
+    budget = shop.detail_budget
+    seen: set = set()
+    page, last = 1, None
+    try:
+        while True:
+            html = session.get(shop.listing_url, params={"p": page}).text
+            if last is None:
+                last = max((int(n) for n in GOMAG_LAST_PAGE.findall(html)), default=1)
+            new = [b for b in gomag_listing(html) if b["id"] not in seen]
+            for b in new:
+                seen.add(b["id"])
+                code = cache.get(b["id"])
+                if code is None and budget > 0 and not ACCESSORY_WORDS.search(b["name"]):
+                    detail = product_jsonld(session.get(b["url"]).text) or {}
+                    code = detail.get("gtin13") or detail.get("gtin") or ""
+                    cache.put(b["id"], code)
+                    budget -= 1
+                    if budget % 50 == 0:
+                        cache.save()
+                b["gtin13"] = code or None
+                yield {"url": b["url"], "payload": b}
+                if limit and len(seen) >= limit:
+                    return
+            if not new or page >= last:
+                return
+            page += 1
+    finally:
+        cache.save()
+
+
+READERS = {"shopify": shopify, "jsonld_sitemap": jsonld_sitemap, "prestashop": prestashop, "gomag": gomag}

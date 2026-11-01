@@ -162,3 +162,38 @@ def test_prestashop_respects_the_nightly_budget(tmp_path, monkeypatch):
     records = list(platforms.prestashop(regatul(budget=2), session))
     assert session.product_pages == 2
     assert [r["payload"]["gtin13"] is not None for r in records[:4]] == [True, True, False, False]
+
+
+def test_gomag_listing_reads_prices_and_stock_from_real_boxes():
+    boxes = platforms.gomag_listing((FIXTURES / "lexshop_listing.html").read_text(encoding="utf-8"))
+    assert len(boxes) == 6
+    by_name = {b["name"]: b for b in boxes}
+    ants = by_name["March of the Ants Evolved Edition - Joc de Strategie, Engleza"]
+    assert ants["price"] == "269.25" and ants["list_price"] == "359.00" and ants["in_stock"] is True
+    assert by_name["Wildlands"]["in_stock"] is False                 # "Alerta stoc" = out of stock
+    assert any(n.startswith("Jim Henson's Labyrinth") for n in by_name)  # &#039; decoded
+
+
+class GomagSession:
+    def __init__(self):
+        self.listing = (FIXTURES / "lexshop_listing.html").read_text(encoding="utf-8")
+        self.page_html = (FIXTURES / "lexshop_product.html").read_text(encoding="utf-8")
+        self.pages, self.product_pages = [], 0
+
+    def get(self, url, params=None, **kw):
+        if params is not None:
+            self.pages.append(params["p"])
+            return FakeResponse(text=self.listing)   # every page returns the same boxes
+        self.product_pages += 1
+        return FakeResponse(text=self.page_html)
+
+
+def test_gomag_stops_when_a_page_brings_nothing_new_and_skips_accessory_pages(tmp_path, monkeypatch):
+    from collector.shops import SHOPS
+    monkeypatch.setenv("BOARDGAME_CACHE", str(tmp_path))
+    session = GomagSession()
+    records = list(platforms.gomag(SHOPS["lexshop"], session))
+    assert len(records) == 6 and session.pages == [1, 2]
+    # the playmat is an accessory: no product-page visit for it
+    assert session.product_pages == 5
+    assert records[1]["payload"]["gtin13"] == "4002051693732"

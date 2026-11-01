@@ -11,6 +11,8 @@ with unioned as (
     select * from {{ ref('stg_jsonld_offers') }}
     union all
     select * from {{ ref('stg_prestashop_offers') }}
+    union all
+    select * from {{ ref('stg_gomag_offers') }}
 ),
 
 categorised as (

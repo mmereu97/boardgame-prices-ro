@@ -43,9 +43,9 @@ def today_dir() -> Path:
 )
 def boardgame_prices():
 
-    # At most two collections at once: Pionul in one slot, the Shopify shops one after the
-    # other in the second. Shopify rate-limits by IP across all its shops (HTTP 429 on the
-    # NAS when four ran in parallel), so its shops must not run side by side.
+    # At most two collections at once. Shopify rate-limits by IP across all its shops (HTTP 429
+    # on the NAS when four ran in parallel), so its shops, which come last in the order below,
+    # run one at a time.
     # map_index_template: the UI shows "collect [jocozaur]" instead of "collect [2]".
     @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=2,
           map_index_template="{{ shop_label }}")
@@ -79,7 +79,8 @@ def boardgame_prices():
         retries=0,                       # a failing data test needs a human, not a retry
     )
 
-    # The long collection (Pionul) starts first, so the Shopify shops queue in the other slot.
+    # The non-Shopify shops come first (Pionul alone takes ~3 hours) and the Shopify shops
+    # queue after them, one at a time.
     # Airflow identifies mapped tasks by position: never change this order while a run is in
     # progress, or its retries will collect a different shop (it happened on 01.11.2026).
     order = sorted(SHOPS, key=lambda k: (SHOPS[k].platform == "shopify", k))

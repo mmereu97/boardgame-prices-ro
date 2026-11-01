@@ -1,7 +1,8 @@
 {#-
   Two small SQL functions used by the models, created at the start of every run:
 
-  util.valid_ean(text)  -> the code if it is a valid EAN-13 / EAN-8 (check digit verified), else null.
+  util.valid_ean(text)  -> the code if it is a valid EAN-13 / EAN-8 / UPC-A (check digit verified),
+                           UPC-A returned as EAN-13 (leading 0), else null.
                            Shops often put the barcode in the SKU field; the check digit tells a real
                            barcode from an internal code that happens to be 13 digits long.
   util.match_title(text) -> a product title reduced to what identifies the game across shops:
@@ -13,16 +14,21 @@ create schema if not exists util;
 
 create or replace function util.valid_ean(code text) returns text
 language sql immutable as $$
+    -- a 12-digit UPC-A (American games) is an EAN-13 with a leading 0: normalise, then check
+    with n(c) as (
+        select case when code ~ '^[0-9]{12}$' then '0' || code else code end
+    )
     select case
-        when code ~ '^[0-9]{13}$'
-             and (10 - (select sum(substr(code, i, 1)::int * case when i % 2 = 0 then 3 else 1 end)
-                        from generate_series(1, 12) i) % 10) % 10 = substr(code, 13, 1)::int
-            then code
-        when code ~ '^[0-9]{8}$'
-             and (10 - (select sum(substr(code, i, 1)::int * case when i % 2 = 1 then 3 else 1 end)
-                        from generate_series(1, 7) i) % 10) % 10 = substr(code, 8, 1)::int
-            then code
+        when c ~ '^[0-9]{13}$'
+             and (10 - (select sum(substr(c, i, 1)::int * case when i % 2 = 0 then 3 else 1 end)
+                        from generate_series(1, 12) i) % 10) % 10 = substr(c, 13, 1)::int
+            then c
+        when c ~ '^[0-9]{8}$'
+             and (10 - (select sum(substr(c, i, 1)::int * case when i % 2 = 1 then 3 else 1 end)
+                        from generate_series(1, 7) i) % 10) % 10 = substr(c, 8, 1)::int
+            then c
     end
+    from n
 $$;
 
 create or replace function util.match_title(title text) returns text

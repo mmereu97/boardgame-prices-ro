@@ -7,10 +7,10 @@ class Shop:
     key: str                  # short id used everywhere (files, tables)
     name: str
     base_url: str
-    platform: str             # "shopify" | "jsonld_sitemap" | "prestashop"
+    platform: str             # "shopify" | "jsonld_sitemap" | "prestashop" | "gomag"
     sitemap: str = ""         # jsonld_sitemap: the products sitemap
-    listing_url: str = ""     # prestashop: the category that lists the whole catalogue
-    detail_budget: int = 0    # prestashop: at most this many product pages per night (barcodes)
+    listing_url: str = ""     # prestashop / gomag: the category listing the products we want
+    detail_budget: int = 0    # prestashop / gomag: at most this many product pages per night
     detail_types: tuple = ()  # prestashop: product types worth a product-page visit
     min_delay: float = 2.0
 
@@ -34,4 +34,8 @@ SHOPS = {s.key: s for s in [
          listing_url="https://regatuljocurilor.ro/ro/acasa", detail_budget=400,
          detail_types=("Joc de baza", "Jocul de baza", "Joc de baza + Extensie", "Extensie", "Extensii", "Promo"),
          min_delay=4.0),
+    # Gomag: the board-games category in ~250 pages of 24; its AJAX loader is disallowed by
+    # robots.txt, so only the normal pages are read. Barcodes once per game, as above.
+    Shop("lexshop", "Lexshop", "https://www.lexshop.ro", "gomag",
+         listing_url="https://www.lexshop.ro/board-games-3", detail_budget=400, min_delay=3.0),
 ]}
