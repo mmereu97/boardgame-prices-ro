@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 USER_AGENT = "boardgame-prices-ro/1.0 (personal price tracker; https://github.com/mmereu97/boardgame-prices-ro)"
 DEFAULT_DELAY = 2.0          # seconds between two requests to the same host
-RETRIES = 4
+RETRIES = 5
 
 
 class Blocked(Exception):
@@ -60,9 +60,10 @@ class PoliteSession:
             try:
                 r = self.http.get(url, timeout=self.timeout, **kw)
                 if r.status_code in (429, 500, 502, 503, 504) and attempt < RETRIES:
-                    # Honour Retry-After when the shop sends it; otherwise back off 1, 2, 3 minutes.
+                    # Back off exponentially (1, 2, 4, 8 minutes), or longer if the shop asks
+                    # for it with Retry-After: retrying every minute while blocked only prolongs it.
                     retry_after = r.headers.get("Retry-After", "")
-                    pause = int(retry_after) if retry_after.isdigit() else 60 * attempt
+                    pause = max(int(retry_after) if retry_after.isdigit() else 0, 60 * 2 ** (attempt - 1))
                     log.warning("%s -> %s, retry in %ss", url, r.status_code, pause)
                     time.sleep(pause)
                     continue

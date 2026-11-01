@@ -9,7 +9,7 @@ Same game, different names: one shop sells *"Dixit - Joc de societate, editie in
 ```
  shops (public catalogues)          Airflow, every night at 01:30
  ───────────────────────            ──────────────────────────────────────────────────
- Ludicus, Red Goblin,      ──►  collect ×5 (one task per shop, parallel, polite)
+ Ludicus, Red Goblin,      ──►  collect ×5 (one task per shop, at most 2 at once, polite)
  Jocozaur, Ideal Board          │
  Games (Shopify JSON)           ▼
  Pionul (schema.org        load  ──►  raw.offers (JSONB, one row per product per day)
@@ -41,10 +41,10 @@ Both rules are covered by **dbt unit tests** with real title variants, and a dat
 ## Being a good guest on someone else's website
 
 - Only public catalogues that **robots.txt** allows; its **Crawl-delay** is honoured (Pionul asks for 5 s).
-- A minimum pause per shop; Shopify shops get 10 s, because Shopify answered **HTTP 429** in testing. On 429 the collector honours **Retry-After** and backs off.
+- A minimum pause per shop; Shopify shops get 10 s, because Shopify answered **HTTP 429** in testing. On 429 the collector backs off exponentially (1, 2, 4, 8 minutes) or longer if the shop asks for it with **Retry-After**.
 - An honest User-Agent that names the project.
 - Shopify shops: about 1–50 requests per shop per night for the whole catalogue (`/products.json`, 250 products per page). Some shops repeat the last page instead of ending; the collector stops when a page brings nothing new.
-- Shops are collected in parallel only because they are different hosts: the delays are per host.
+- At most two shops are collected at once, and **never two Shopify shops together**: Shopify rate-limits by IP across every shop it hosts. Four shops in parallel from the home server earned an HTTP 429 even on the first page, so the Shopify shops now queue one after the other while the long Pionul collection runs alongside.
 
 ## Reliability
 

@@ -87,3 +87,25 @@ def test_polite_session_refuses_what_robots_txt_disallows(monkeypatch):
     with pytest.raises(Blocked):
         s.get("https://example.ro/cart/1")
     assert s.delay_for("https://example.ro/products/1") == 5
+
+
+def test_polite_session_backs_off_exponentially_on_429(monkeypatch):
+    import collector.polite as polite
+    s = PoliteSession(min_delay=0)
+    s._robots["https://example.ro"] = polite.urllib.robotparser.RobotFileParser()
+    s._robots["https://example.ro"].parse([])
+    answers = [429, 429, 429, 200]
+
+    def fake_get(url, timeout=None, **kw):
+        r = FakeResponse(text="ok")
+        r.status_code = answers.pop(0)
+        r.headers = {"Retry-After": "30"}
+        r.raise_for_status = lambda: None
+        return r
+
+    pauses = []
+    monkeypatch.setattr(s.http, "get", fake_get)
+    monkeypatch.setattr(polite.time, "sleep", pauses.append)
+    assert s.get("https://example.ro/products.json").text == "ok"
+    # Retry-After asks for 30 s, but a blocked IP needs longer: 1, 2, 4 minutes
+    assert [p for p in pauses if p > 1] == [60, 120, 240]

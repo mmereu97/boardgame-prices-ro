@@ -3,8 +3,8 @@
     collect (one task per shop, in parallel)  ->  load into PostgreSQL  ->  dbt build
 
 - Each shop is its own task: a shop that is down or rate-limits us is retried on its own,
-  and the others carry on. Shops are different hosts, so running them in parallel does
-  not break the per-shop politeness (delays are per host).
+  and the others carry on. At most two run at once, and never two Shopify shops together:
+  Shopify rate-limits by IP across all the shops it hosts.
 - load and dbt run even if some shops failed ("all_done"): yesterday's prices stay valid
   for a shop that failed tonight (see mart_best_prices).
 - dbt build runs the models, the price-history snapshot and every test; a failing test
@@ -43,7 +43,10 @@ def today_dir() -> Path:
 )
 def boardgame_prices():
 
-    @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=len(SHOPS))
+    # At most two collections at once: Pionul in one slot, the Shopify shops one after the
+    # other in the second. Shopify rate-limits by IP across all its shops (HTTP 429 on the
+    # NAS when four ran in parallel), so its shops must not run side by side.
+    @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=2)
     def collect(shop: str) -> str:
         from collector.run import collect as run_collect
         out = today_dir() / f"{shop}.jsonl"
@@ -71,7 +74,9 @@ def boardgame_prices():
         retries=0,                       # a failing data test needs a human, not a retry
     )
 
-    collect.expand(shop=sorted(SHOPS)) >> load() >> dbt_build
+    # the long collection (Pionul) starts first, so the Shopify shops queue in the other slot
+    order = sorted(SHOPS, key=lambda k: (SHOPS[k].platform == "shopify", k))
+    collect.expand(shop=order) >> load() >> dbt_build
 
 
 boardgame_prices()
