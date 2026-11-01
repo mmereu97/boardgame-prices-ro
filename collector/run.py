@@ -13,6 +13,8 @@ from .platforms import READERS
 from .polite import PoliteSession
 from .shops import SHOPS
 
+PROGRESS_EVERY = 100   # a line in the log every 100 products, to follow long collections
+
 
 def collect(shop_key: str, out: Path, limit: int | None = None) -> int:
     shop = SHOPS[shop_key]
@@ -26,6 +28,8 @@ def collect(shop_key: str, out: Path, limit: int | None = None) -> int:
                    "collected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **rec}
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
             n += 1
+            if n % PROGRESS_EVERY == 0:
+                logging.info("%s: %d products so far", shop_key, n)
     tmp.replace(out)   # a half-written file never looks like a finished one
     logging.info("%s: %d records -> %s", shop_key, n, out)
     return n
