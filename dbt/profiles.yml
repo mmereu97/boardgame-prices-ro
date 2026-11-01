@@ -1,0 +1,14 @@
+# Connection comes from the standard PostgreSQL environment variables, so the same profile
+# works in Docker (Airflow), in GitHub Actions and on a laptop.
+boardgame_prices:
+  target: default
+  outputs:
+    default:
+      type: postgres
+      host: "{{ env_var('PGHOST', 'localhost') }}"
+      port: "{{ env_var('PGPORT', '5432') | int }}"
+      user: "{{ env_var('PGUSER', 'postgres') }}"
+      password: "{{ env_var('PGPASSWORD', '') }}"
+      dbname: "{{ env_var('PGDATABASE', 'boardgames') }}"
+      schema: dbt
+      threads: 4

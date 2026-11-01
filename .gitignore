@@ -1,0 +1,17 @@
+# collected data stays on the machine that collects it (see README: "What is published")
+data/
+*.jsonl.partial
+
+# secrets
+.env
+
+# Python / dbt
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
+logs/

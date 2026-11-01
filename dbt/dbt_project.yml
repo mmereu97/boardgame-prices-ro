@@ -1,0 +1,33 @@
+name: boardgame_prices
+version: "1.0.0"
+config-version: 2
+profile: boardgame_prices
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+snapshot-paths: ["snapshots"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+on-run-start:
+  - "{{ create_helper_functions() }}"
+
+models:
+  boardgame_prices:
+    staging:
+      +schema: staging
+      +materialized: view
+    intermediate:
+      +schema: intermediate
+      +materialized: table
+    marts:
+      +schema: marts
+      +materialized: table
+
+seeds:
+  boardgame_prices:
+    +schema: reference
+
+snapshots:
+  boardgame_prices:
+    +target_schema: snapshots

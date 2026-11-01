@@ -1,0 +1,76 @@
+# One command: docker compose up -d
+#   Airflow   http://<host>:8090   (the nightly pipeline)
+#   Metabase  http://<host>:3010   (the dashboard)
+# PostgreSQL is not published to the network; only the two services above can reach it.
+# Settings (password, data folder) come from .env; copy .env.example to .env first.
+
+x-pg: &pg
+  PGHOST: postgres
+  PGPORT: "5432"
+  PGUSER: boardgames
+  PGPASSWORD: ${POSTGRES_PASSWORD}
+  PGDATABASE: boardgames
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: boardgames
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: boardgames
+      TZ: Europe/Bucharest
+    volumes:
+      - ${DATA_DIR}/postgres:/var/lib/postgresql/data
+      - ./docker/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U boardgames -d boardgames"]
+      interval: 10s
+      retries: 10
+
+  airflow:
+    build: { context: ., dockerfile: docker/Dockerfile }
+    image: boardgame-prices-airflow:v1
+    restart: unless-stopped
+    # "standalone" runs scheduler, API server and DAG processor in one container: right
+    # for one nightly DAG on a home server; a team setup would split them.
+    command: standalone
+    user: "${AIRFLOW_UID:-50000}:0"
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["8090:8080"]
+    environment:
+      <<: *pg
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://boardgames:${POSTGRES_PASSWORD}@postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DEFAULT_TIMEZONE: Europe/Bucharest
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/project/dags
+      BOARDGAME_PROJECT: /opt/project
+      BOARDGAME_RAW: /data/raw
+      DBT_BIN: /opt/airflow/dbt-venv/bin/dbt
+      # one admin user; its password is generated on first start and kept in the state folder
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: admin:admin
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/state/passwords.json
+      AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/state/logs
+      TZ: Europe/Bucharest
+    volumes:
+      - ./:/opt/project:ro
+      - ${DATA_DIR}/raw:/data/raw
+      - ${DATA_DIR}/airflow:/opt/airflow/state
+
+  metabase:
+    image: metabase/metabase:v0.64.2
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports: ["3010:3000"]
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: postgres
+      MB_DB_PORT: "5432"
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: boardgames
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      JAVA_OPTS: -Xmx768m
+      JAVA_TIMEZONE: Europe/Bucharest

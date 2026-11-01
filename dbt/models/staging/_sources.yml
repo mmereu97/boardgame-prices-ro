@@ -1,0 +1,14 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Loaded by loader/load_raw.py; one row per product per shop per day, payload as published.
+    tables:
+      - name: offers
+        columns:
+          - name: shop
+            data_tests: [not_null]
+          - name: collected_on
+            data_tests: [not_null]
+          - name: payload
+            data_tests: [not_null]

@@ -1,0 +1,14 @@
+shop,category_pattern,is_board_game
+jocozaur,Board Games,true
+jocozaur,Card Games,true
+jocozaur,%,false
+ludicus,Joc de societate,true
+ludicus,Jocuri de societate,true
+ludicus,Joc de petrecere,true
+ludicus,%,false
+redgoblin,Jocuri,true
+redgoblin,%,false
+idealboardgames,%,true
+pionul,Jocuri >%,true
+pionul,Jocuri > Accesorii%,false
+pionul,%,false

@@ -1,0 +1,48 @@
+version: 2
+
+models:
+  - name: fct_offer_prices
+    description: One row per board-game offer per shop per collection day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [offer_id, collected_on]
+    columns:
+      - name: offer_id
+        data_tests: [not_null]
+      - name: game_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_games')
+                field: game_key
+      - name: shop
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('shops')
+                field: shop
+      - name: price
+        data_tests: [not_null]
+      - name: match_method
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [ean, title_to_ean, title]
+
+  - name: dim_games
+    description: One row per game across all shops.
+    columns:
+      - name: game_key
+        data_tests: [unique, not_null]
+      - name: title
+        data_tests: [not_null]
+
+  - name: mart_best_prices
+    description: For every game in stock somewhere, the cheapest shop today and how good that price is.
+    columns:
+      - name: game_key
+        data_tests: [unique, not_null]
+      - name: best_price
+        data_tests: [not_null]

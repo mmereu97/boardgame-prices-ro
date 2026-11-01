@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: int_offers
+    description: Every offer from every shop in one shape, with barcode, match title, edition language and the board-game flag.
+  - name: int_offer_game_keys
+    description: The game each offer belongs to, and how it was matched (ean, title_to_ean, title).
+    columns:
+      - name: offer_id
+        data_tests: [unique, not_null]
+
+unit_tests:
+  - name: titles_barcodes_and_languages_are_normalised
+    description: >
+      Real title variants from different shops must reduce to the same match title; only
+      barcodes with a valid check digit count; the edition language is read from the title,
+      in Romanian, English or Hungarian.
+    model: int_offers
+    given:
+      - input: ref('stg_shopify_offers')
+        rows:
+          - {shop: ludicus, offer_id: "ludicus:1", title: "Dixit - Joc de societate, editie in limba romana", category: "Joc de societate", sku: "5940571130384", price: 159}
+          - {shop: jocozaur, offer_id: "jocozaur:2", title: "Dixit, román nyelvű társasjáték", category: "Board Games", sku: "5940571130385", price: 149}
+          - {shop: redgoblin, offer_id: "redgoblin:3", title: "Ticket to Ride: Europe - Board Game (EN)", category: "Jocuri", sku: "AB-1234", price: 249}
+          - {shop: redgoblin, offer_id: "redgoblin:4", title: "Cana Pokemon - Pikachu", category: "Figurine & Jucarii", sku: "55011", price: 69}
+      - input: ref('stg_jsonld_offers')
+        rows:
+          - {shop: pionul, offer_id: "pionul:5", title: "DIXIT (RO)", category: "Jocuri > Dupa categorie de joc > Jocuri de carti", sku: "BKF09", price: 159}
+      - input: ref('board_game_categories')
+        format: csv
+        fixture: board_game_categories
+    expect:
+      rows:
+        - {offer_id: "ludicus:1", match_title: "dixit", ean: "5940571130384", edition_language: ro, is_board_game: true}
+        - {offer_id: "jocozaur:2", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}
+        - {offer_id: "redgoblin:3", match_title: "ticket to ride europe", ean: null, edition_language: en, is_board_game: true}
+        - {offer_id: "redgoblin:4", match_title: "cana pokemon pikachu", ean: null, edition_language: null, is_board_game: false}
+        - {offer_id: "pionul:5", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}
+
+  - name: offers_without_barcode_borrow_it_by_title_and_language
+    description: >
+      An offer without a barcode joins the game of a same-title, same-language offer that has
+      one; a different language stays a different game.
+    model: int_offer_game_keys
+    given:
+      - input: ref('int_offers')
+        rows:
+          - {offer_id: "a:1", collected_on: 2026-11-01, match_title: "dixit", edition_language: ro, ean: "5940571130384", is_board_game: true}
+          - {offer_id: "b:2", collected_on: 2026-11-01, match_title: "dixit", edition_language: ro, ean: null, is_board_game: true}
+          - {offer_id: "c:3", collected_on: 2026-11-01, match_title: "dixit", edition_language: en, ean: null, is_board_game: true}
+    expect:
+      rows:
+        - {offer_id: "a:1", game_key: "ean:5940571130384", match_method: ean}
+        - {offer_id: "b:2", game_key: "ean:5940571130384", match_method: title_to_ean}
+        - {offer_id: "c:3", game_key: "title:dixit|en", match_method: title}

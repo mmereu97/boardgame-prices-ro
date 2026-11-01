@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: boardgames
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: boardgames
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Collector tests (offline, saved pages)
+        run: pytest -q tests
+
+      - name: Day 1 - load the sample and build
+        run: |
+          python -m loader.load_raw sample/day1.jsonl
+          cd dbt && dbt build --profiles-dir .
+
+      - name: Day 2 - a price changes; the snapshot must record it
+        run: |
+          python -m loader.load_raw sample/day2.jsonl
+          cd dbt && dbt build --profiles-dir .
+          changed=$(psql -tAc "select count(*) from (select offer_id from snapshots.offer_prices_snapshot group by 1 having count(*) > 1) x")
+          echo "offers with price history: $changed"
+          test "$changed" -ge 1

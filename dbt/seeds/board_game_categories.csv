@@ -1,0 +1,14 @@
+shop,category_pattern,is_board_game,note
+jocozaur,Board Games,true,
+jocozaur,Card Games,true,
+jocozaur,%,false,"LEGO, puzzles, books, toys"
+ludicus,Joc de societate,true,
+ludicus,Jocuri de societate,true,
+ludicus,Joc de petrecere,true,party games
+ludicus,%,false,"logic puzzles, wooden toys, playing-card decks"
+redgoblin,Jocuri,true,board and card games
+redgoblin,%,false,"figures, comics, apparel, collectible card games, pre-orders"
+idealboardgames,%,true,"publisher: the whole catalogue is board games and expansions"
+pionul,Jocuri >%,true,
+pionul,Jocuri > Accesorii%,false,"sleeves, inserts, dice"
+pionul,%,false,
