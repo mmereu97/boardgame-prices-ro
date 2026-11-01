@@ -4,16 +4,19 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Shop:
-    key: str            # short id used everywhere (files, tables)
+    key: str                  # short id used everywhere (files, tables)
     name: str
     base_url: str
-    platform: str       # "shopify" | "jsonld_sitemap"
-    sitemap: str = ""   # jsonld_sitemap: the products sitemap
+    platform: str             # "shopify" | "jsonld_sitemap" | "prestashop"
+    sitemap: str = ""         # jsonld_sitemap: the products sitemap
+    listing_url: str = ""     # prestashop: the category that lists the whole catalogue
+    detail_budget: int = 0    # prestashop: at most this many product pages per night (barcodes)
+    detail_types: tuple = ()  # prestashop: product types worth a product-page visit
     min_delay: float = 2.0
 
 
-# Shopify rate-limits its public catalogue (HTTP 429 seen in testing), so its shops get
-# a longer pause; there are only ~10-30 requests per shop, so this costs a few minutes.
+# Shopify rate-limits its public catalogue by IP across all its shops (HTTP 429 seen in
+# testing), so its shops get a longer pause and never run in parallel (see the DAG).
 SHOPIFY_DELAY = 10.0
 
 
@@ -25,4 +28,10 @@ SHOPS = {s.key: s for s in [
     # robots.txt asks for Crawl-delay: 5; the session honours it automatically.
     Shop("pionul", "Pionul", "https://www.pionul.ro", "jsonld_sitemap",
          sitemap="https://www.pionul.ro/sitemap_products.xml"),
+    # The whole catalogue (~14,700 products) in ~150 listing pages of 100; the barcode is only
+    # on the product page, so it is fetched once per game and remembered.
+    Shop("regatuljocurilor", "Regatul Jocurilor", "https://regatuljocurilor.ro", "prestashop",
+         listing_url="https://regatuljocurilor.ro/ro/acasa", detail_budget=400,
+         detail_types=("Joc de baza", "Jocul de baza", "Joc de baza + Extensie", "Extensie", "Extensii", "Promo"),
+         min_delay=4.0),
 ]}

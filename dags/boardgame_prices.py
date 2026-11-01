@@ -51,6 +51,8 @@ def boardgame_prices():
           map_index_template="{{ shop_label }}")
     def collect(shop: str) -> str:
         get_current_context()["shop_label"] = shop
+        # barcodes read from product pages are remembered next to the collected files
+        os.environ.setdefault("BOARDGAME_CACHE", str(RAW / "_cache"))
         from collector.run import collect as run_collect
         out = today_dir() / f"{shop}.jsonl"
         # BOARDGAME_LIMIT=20 makes a quick smoke test: a few products per shop instead of all

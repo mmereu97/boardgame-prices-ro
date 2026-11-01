@@ -1,6 +1,6 @@
 # 🎲 Board Game Prices RO
 
-**Every night, the board-game prices of five Romanian shops: collected politely, matched across shops, kept as history, tested, and shown on a dashboard.**
+**Every night, the board-game prices of six Romanian shops: collected politely, matched across shops, kept as history, tested, and shown on a dashboard.**
 
 Same game, different names: one shop sells *"Dixit - Joc de societate, editie in limba romana"*, another *"DIXIT (RO)"*, a third *"Dixit, román nyelvű társasjáték"*. This pipeline recognises them as one game, finds the cheapest shop today and tells whether today's price is the lowest ever seen.
 
@@ -9,11 +9,14 @@ Same game, different names: one shop sells *"Dixit - Joc de societate, editie in
 ```
  shops (public catalogues)          Airflow, every night at 01:30
  ───────────────────────            ──────────────────────────────────────────────────
- Ludicus, Red Goblin,      ──►  collect ×5 (one task per shop, at most 2 at once, polite)
+ Ludicus, Red Goblin,      ──►  collect ×6 (one task per shop, at most 2 at once, polite)
  Jocozaur, Ideal Board          │
  Games (Shopify JSON)           ▼
  Pionul (schema.org        load  ──►  raw.offers (JSONB, one row per product per day)
  data on product pages)         │
+ Regatul Jocurilor              │
+ (PrestaShop listing JSON       │
+ + barcode, once per game)      │
                                 ▼
                           dbt build
                             staging       one shape per platform (jsonb → columns)
@@ -43,8 +46,9 @@ Both rules are covered by **dbt unit tests** with real title variants, and a dat
 - Only public catalogues that **robots.txt** allows; its **Crawl-delay** is honoured (Pionul asks for 5 s).
 - A minimum pause per shop; Shopify shops get 10 s, because Shopify answered **HTTP 429** in testing. On 429 the collector backs off exponentially (1, 2, 4, 8 minutes) or longer if the shop asks for it with **Retry-After**.
 - An honest User-Agent that names the project.
+- **Regatul Jocurilor (PrestaShop):** its sitemap has ~14,700 product pages, too many to open every night. The whole catalogue is read instead from the shop's own listing in JSON (the format its pages use when you browse), 100 products per page: about 150 requests, with 4 s between them. The barcode is only on the product page, so the collector opens it **once per game**, at most 400 a night, and remembers the barcodes (`BarcodeCache`); in a few weeks every game has one, and until then it is matched by title.
 - Shopify shops: about 1–50 requests per shop per night for the whole catalogue (`/products.json`, 250 products per page). Some shops repeat the last page instead of ending; the collector stops when a page brings nothing new.
-- At most two shops are collected at once, and **never two Shopify shops together**: Shopify rate-limits by IP across every shop it hosts. Four shops in parallel from the home server earned an HTTP 429 even on the first page, so the Shopify shops now queue one after the other while the long Pionul collection runs alongside.
+- At most two shops are collected at once, and **never two Shopify shops together**: Shopify rate-limits by IP across every shop it hosts. Four shops in parallel from the home server earned an HTTP 429 even on the first page, so the Shopify shops now queue one after the other while Pionul (about three hours, at its requested 5 s) runs alongside.
 
 ## Reliability
 
@@ -56,7 +60,7 @@ Both rules are covered by **dbt unit tests** with real title variants, and a dat
 
 ## What is published (and what is not)
 
-The code, the tests and a 16-record sample. **The collected data is not**: it stays in the database of whoever runs the pipeline. This is a personal price tracker, not a price-comparison service.
+The code, the tests and a 20-record sample. **The collected data is not**: it stays in the database of whoever runs the pipeline. This is a personal price tracker, not a price-comparison service.
 
 ## Run it
 

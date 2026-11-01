@@ -1,4 +1,5 @@
 """Collector tests: no network, only saved pages and fake responses."""
+import json
 from pathlib import Path
 
 import pytest
@@ -109,3 +110,55 @@ def test_polite_session_backs_off_exponentially_on_429(monkeypatch):
     assert s.get("https://example.ro/products.json").text == "ok"
     # Retry-After asks for 30 s, but a blocked IP needs longer: 1, 2, 4 minutes
     assert [p for p in pauses if p > 1] == [60, 120, 240]
+
+
+class PrestaShopSession:
+    """Serves the saved Regatul listing for the listing URL and the saved product page otherwise."""
+    def __init__(self):
+        self.listing = json.loads((FIXTURES / "regatul_listing.json").read_text(encoding="utf-8"))
+        self.page_html = (FIXTURES / "regatul_product.html").read_text(encoding="utf-8")
+        self.product_pages = 0
+
+    def get(self, url, params=None, headers=None, **kw):
+        if params is not None:
+            assert params["resultsPerPage"] == 100 and headers["X-Requested-With"] == "XMLHttpRequest"
+            data = self.listing if params["page"] == 1 else {"products": [], "pagination": {"pages_count": 1}}
+            return FakeResponse(data)
+        self.product_pages += 1
+        return FakeResponse(text=self.page_html)
+
+
+def regatul(budget=400):
+    from collector.shops import SHOPS
+    from dataclasses import replace
+    return replace(SHOPS["regatuljocurilor"], detail_budget=budget)
+
+
+def test_prestashop_reads_the_listing_and_fetches_barcodes_only_for_games(tmp_path, monkeypatch):
+    monkeypatch.setenv("BOARDGAME_CACHE", str(tmp_path))
+    session = PrestaShopSession()
+    records = list(platforms.prestashop(regatul(), session))
+    names = [r["payload"]["name"] for r in records]
+    assert names[0] == "Scythe (English Edition)" and len(records) == 5
+    # four games get a product-page visit; the accessory (Scythe: Modular Board) does not
+    assert session.product_pages == 4
+    assert records[0]["payload"]["gtin13"] == "0653341025005"
+    assert records[-1]["payload"]["reference"] == "Accesoriu" and records[-1]["payload"]["gtin13"] is None
+    assert records[0]["payload"]["price_amount"] == 449
+
+
+def test_prestashop_remembers_barcodes_between_nights(tmp_path, monkeypatch):
+    monkeypatch.setenv("BOARDGAME_CACHE", str(tmp_path))
+    list(platforms.prestashop(regatul(), PrestaShopSession()))
+    second_night = PrestaShopSession()
+    records = list(platforms.prestashop(regatul(), second_night))
+    assert second_night.product_pages == 0
+    assert records[0]["payload"]["gtin13"] == "0653341025005"
+
+
+def test_prestashop_respects_the_nightly_budget(tmp_path, monkeypatch):
+    monkeypatch.setenv("BOARDGAME_CACHE", str(tmp_path))
+    session = PrestaShopSession()
+    records = list(platforms.prestashop(regatul(budget=2), session))
+    assert session.product_pages == 2
+    assert [r["payload"]["gtin13"] is not None for r in records[:4]] == [True, True, False, False]

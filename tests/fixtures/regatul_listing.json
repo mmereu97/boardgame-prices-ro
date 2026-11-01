@@ -1,0 +1,68 @@
+{
+ "pagination": {
+  "total_items": 14692,
+  "pages_count": 147
+ },
+ "products": [
+  {
+   "id_product": "2927",
+   "name": "Scythe (English Edition)",
+   "url": "https://regatuljocurilor.ro/ro/acasa/scythe",
+   "reference": "Joc de baza",
+   "price": "449,00 RON",
+   "price_amount": 449,
+   "regular_price_amount": 449,
+   "has_discount": false,
+   "add_to_cart_url": "https://regatuljocurilor.ro/ro/cos?add=1&id_product=2927&id_product_attribute=0&token=6cf63467592d9cb1faae26d0117d7d49",
+   "category_name": "Acasa"
+  },
+  {
+   "id_product": "4213",
+   "name": "Charterstone (English Edition)",
+   "url": "https://regatuljocurilor.ro/ro/acasa/charterstone",
+   "reference": "Joc de baza",
+   "price": "359,00 RON",
+   "price_amount": 359,
+   "regular_price_amount": 359,
+   "has_discount": false,
+   "add_to_cart_url": "https://regatuljocurilor.ro/ro/cos?add=1&id_product=4213&id_product_attribute=0&token=6cf63467592d9cb1faae26d0117d7d49",
+   "category_name": "Acasa"
+  },
+  {
+   "id_product": "17051",
+   "name": "Star Wars: Unlimited - Homeworlds - Spotlight Deck: Grand Moff Tarkin/Death Star",
+   "url": "https://regatuljocurilor.ro/ro/acasa/star-wars-unlimited-homeworlds-spotlight-deck-grand-moff-tarkindeath-star",
+   "reference": "Joc de baza",
+   "price": "124,00 RON",
+   "price_amount": 124,
+   "regular_price_amount": 124,
+   "has_discount": false,
+   "add_to_cart_url": "https://regatuljocurilor.ro/ro/cos?add=1&id_product=17051&id_product_attribute=0&token=6cf63467592d9cb1faae26d0117d7d49",
+   "category_name": "Acasa"
+  },
+  {
+   "id_product": "17050",
+   "name": "Star Wars: Unlimited - Homeworlds - Spotlight Deck: Chewbacca",
+   "url": "https://regatuljocurilor.ro/ro/acasa/star-wars-unlimited-homeworlds-spotlight-deck-chewbacca",
+   "reference": "Joc de baza",
+   "price": "124,00 RON",
+   "price_amount": 124,
+   "regular_price_amount": 124,
+   "has_discount": false,
+   "add_to_cart_url": "https://regatuljocurilor.ro/ro/cos?add=1&id_product=17050&id_product_attribute=0&token=6cf63467592d9cb1faae26d0117d7d49",
+   "category_name": "Acasa"
+  },
+  {
+   "id_product": "6219",
+   "name": "Scythe: Modular Board",
+   "url": "https://regatuljocurilor.ro/ro/acasa/scythe-modular-board",
+   "reference": "Accesoriu",
+   "price": "124,00 RON",
+   "price_amount": 124,
+   "regular_price_amount": 124,
+   "has_discount": false,
+   "add_to_cart_url": "https://regatuljocurilor.ro/ro/cos?add=1&id_product=6219&id_product_attribute=0&token=6cf63467592d9cb1faae26d0117d7d49",
+   "category_name": "Acasa"
+  }
+ ]
+}

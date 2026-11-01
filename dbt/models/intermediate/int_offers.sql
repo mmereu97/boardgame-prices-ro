@@ -9,6 +9,8 @@ with unioned as (
     select * from {{ ref('stg_shopify_offers') }}
     union all
     select * from {{ ref('stg_jsonld_offers') }}
+    union all
+    select * from {{ ref('stg_prestashop_offers') }}
 ),
 
 categorised as (
@@ -34,7 +36,7 @@ select
     util.valid_ean(sku)                                   as ean,
     util.match_title(title)                               as match_title,
     case
-        when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+romana|\(ro\)|\mro$|editie romaneasca|roman nyelvu' then 'ro'
+        when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+romana|\(ro\)|\mro$|editie romaneasca|romanian edition|roman nyelvu' then 'ro'
         when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+engleza|\(en\)|\(eng\)|\men$|english edition|angol nyelvu' then 'en'
     end                                                   as edition_language,
     price,

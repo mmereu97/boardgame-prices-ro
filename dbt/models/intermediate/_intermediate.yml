@@ -26,6 +26,10 @@ unit_tests:
       - input: ref('stg_jsonld_offers')
         rows:
           - {shop: pionul, offer_id: "pionul:5", title: "DIXIT (RO)", category: "Jocuri > Dupa categorie de joc > Jocuri de carti", sku: "BKF09", price: 159}
+      - input: ref('stg_prestashop_offers')
+        rows:
+          - {shop: regatuljocurilor, offer_id: "regatuljocurilor:6", title: "Dixit (Romanian Edition)", category: "Joc de baza", sku: "5940571130384", price: 139}
+          - {shop: regatuljocurilor, offer_id: "regatuljocurilor:7", title: "Scythe: Modular Board", category: "Accesoriu", sku: null, price: 99}
       - input: ref('board_game_categories')
         format: csv
         fixture: board_game_categories
@@ -36,6 +40,8 @@ unit_tests:
         - {offer_id: "redgoblin:3", match_title: "ticket to ride europe", ean: null, edition_language: en, is_board_game: true}
         - {offer_id: "redgoblin:4", match_title: "cana pokemon pikachu", ean: null, edition_language: null, is_board_game: false}
         - {offer_id: "pionul:5", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}
+        - {offer_id: "regatuljocurilor:6", match_title: "dixit", ean: "5940571130384", edition_language: ro, is_board_game: true}
+        - {offer_id: "regatuljocurilor:7", match_title: "scythe modular board", ean: null, edition_language: null, is_board_game: false}
 
   - name: offers_without_barcode_borrow_it_by_title_and_language
     description: >
