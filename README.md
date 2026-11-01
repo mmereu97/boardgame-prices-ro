@@ -50,6 +50,7 @@ Both rules are covered by **dbt unit tests** with real title variants, and a dat
 
 - **Idempotent loads:** re-loading a shop's day replaces it, so a re-run never duplicates rows.
 - A shop that fails tonight is retried on its own, while the others carry on. The dashboard keeps that shop's **last known prices** instead of losing them.
+- Mapped tasks are labelled with the shop (`collect [jocozaur]`). Airflow identifies them by position, so the shop order must not change while a run is in progress: on the first night a reordering mid-run made a retry collect the wrong shop.
 - `dbt build` runs every model, the snapshot and every test. **A failing test fails the run**, so bad data never reaches the dashboard silently.
 - **CI** (GitHub Actions) runs the collector tests on saved pages (no network), then the whole pipeline on two days of sample data in a real PostgreSQL, and checks that the snapshot recorded the price change between the two days.
 

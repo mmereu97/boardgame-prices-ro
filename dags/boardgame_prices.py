@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pendulum
 from airflow.providers.standard.operators.bash import BashOperator
-from airflow.sdk import dag, task
+from airflow.sdk import dag, get_current_context, task
 
 PROJECT = Path(os.environ.get("BOARDGAME_PROJECT", "/opt/project"))
 RAW = Path(os.environ.get("BOARDGAME_RAW", "/data/raw"))
@@ -46,8 +46,11 @@ def boardgame_prices():
     # At most two collections at once: Pionul in one slot, the Shopify shops one after the
     # other in the second. Shopify rate-limits by IP across all its shops (HTTP 429 on the
     # NAS when four ran in parallel), so its shops must not run side by side.
-    @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=2)
+    # map_index_template: the UI shows "collect [jocozaur]" instead of "collect [2]".
+    @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=2,
+          map_index_template="{{ shop_label }}")
     def collect(shop: str) -> str:
+        get_current_context()["shop_label"] = shop
         from collector.run import collect as run_collect
         out = today_dir() / f"{shop}.jsonl"
         # BOARDGAME_LIMIT=20 makes a quick smoke test: a few products per shop instead of all
@@ -74,7 +77,9 @@ def boardgame_prices():
         retries=0,                       # a failing data test needs a human, not a retry
     )
 
-    # the long collection (Pionul) starts first, so the Shopify shops queue in the other slot
+    # The long collection (Pionul) starts first, so the Shopify shops queue in the other slot.
+    # Airflow identifies mapped tasks by position: never change this order while a run is in
+    # progress, or its retries will collect a different shop (it happened on 01.11.2026).
     order = sorted(SHOPS, key=lambda k: (SHOPS[k].platform == "shopify", k))
     collect.expand(shop=order) >> load() >> dbt_build
 
