@@ -87,7 +87,7 @@ cd dbt && dbt build --profiles-dir .
 | `loader/` | JSON Lines → `raw.offers` (JSONB), idempotent per shop and day |
 | `dbt/` | staging, intermediate and mart models, the price snapshot, data tests, unit tests, seeds |
 | `dags/` | the Airflow DAG |
-| `docker/`, `docker-compose.yml` | Airflow image (dbt in its own virtualenv), PostgreSQL init |
+| `docker/`, `docker-compose.yml` | Airflow image (dbt in its own virtualenv); a `db-init` step creates the Airflow and Metabase databases |
 | `tests/`, `sample/` | collector tests on saved pages, sample data for CI |
 
 ## Related

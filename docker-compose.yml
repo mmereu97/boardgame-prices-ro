@@ -22,11 +22,32 @@ services:
       TZ: Europe/Bucharest
     volumes:
       - ${DATA_DIR}/postgres:/var/lib/postgresql/data
-      - ./docker/initdb.sql:/docker-entrypoint-initdb.d/initdb.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U boardgames -d boardgames"]
       interval: 10s
       retries: 10
+
+  # Creates the databases Airflow and Metabase need, if they are missing, then exits.
+  # (An init script mounted into the postgres image only runs on an empty volume and
+  # depends on file permissions; this step is idempotent and runs on every start.)
+  db-init:
+    image: postgres:16
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      PGHOST: postgres
+      PGUSER: boardgames
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: boardgames
+    entrypoint:
+      - sh
+      - -c
+      - |
+        for db in airflow metabase; do
+          psql -tAc "select 1 from pg_database where datname = '$$db'" | grep -q 1 \
+            || psql -c "create database $$db"
+        done
 
   airflow:
     build: { context: ., dockerfile: docker/Dockerfile }
@@ -37,7 +58,7 @@ services:
     command: standalone
     user: "${AIRFLOW_UID:-50000}:0"
     depends_on:
-      postgres: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
     ports: ["8090:8080"]
     environment:
       <<: *pg
@@ -63,7 +84,7 @@ services:
     image: metabase/metabase:v0.64.2
     restart: unless-stopped
     depends_on:
-      postgres: { condition: service_healthy }
+      db-init: { condition: service_completed_successfully }
     ports: ["3010:3000"]
     environment:
       MB_DB_TYPE: postgres
