@@ -57,16 +57,17 @@ def shopify_turn(name: str):
 
 
 def shopify(shop: Shop, session: PoliteSession, limit: int | None = None) -> Iterator[dict]:
-    """Public catalogue at /products.json, 250 products per request.
+    """Public catalogue at /products.json (or one collection's), 250 products per request.
 
     Some shops do not answer past the last page with an empty list but keep returning
     products, so we also stop on a short page or on a page that brings nothing new.
     """
     seen: set[int] = set()
     page = 1
+    path = f"/collections/{shop.collection}/products.json" if shop.collection else "/products.json"
     with shopify_turn(shop.key):
         while True:
-            r = session.get(f"{shop.base_url}/products.json",
+            r = session.get(f"{shop.base_url}{path}",
                             params={"limit": SHOPIFY_PAGE_SIZE, "page": page})
             products = r.json().get("products", [])
             new = [p for p in products if p["id"] not in seen]

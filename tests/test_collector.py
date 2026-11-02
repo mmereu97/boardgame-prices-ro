@@ -75,8 +75,24 @@ def test_shopify_drops_heavy_fields_but_keeps_the_raw_record():
     assert rec["payload"]["variants"][0]["price"] == "10.00"
 
 
+def test_shopify_reads_one_collection_when_the_shop_has_one():
+    from dataclasses import replace
+    urls = []
+
+    class Recording(FakeSession):
+        def get(self, url, params=None, **kw):
+            urls.append(url)
+            return super().get(url, params, **kw)
+
+    list(platforms.shopify(replace(SHOP, collection="board-games"), Recording([[product(1)]])))
+    list(platforms.shopify(SHOP, Recording([[product(1)]])))
+    assert urls == ["https://example.ro/collections/board-games/products.json",
+                    "https://example.ro/products.json"]
+
+
 def test_shopify_shops_take_turns_with_a_cool_down(monkeypatch):
     # Blocked on 02.11.2026 after one shop: the next Shopify shop waits 20 minutes.
+    monkeypatch.setattr(platforms.shops, "SHOPIFY_COOLDOWN", 20 * 60)
     pauses = []
     monkeypatch.setattr(platforms.time, "sleep", pauses.append)
     list(platforms.shopify(SHOP, FakeSession([[product(1)]])))
@@ -89,6 +105,7 @@ def test_shopify_cool_down_counts_from_a_failed_shop_too(monkeypatch):
     class Blocked429(FakeSession):
         def get(self, url, params=None, **kw):
             raise RuntimeError("429")
+    monkeypatch.setattr(platforms.shops, "SHOPIFY_COOLDOWN", 20 * 60)
     pauses = []
     monkeypatch.setattr(platforms.time, "sleep", pauses.append)
     with pytest.raises(RuntimeError):

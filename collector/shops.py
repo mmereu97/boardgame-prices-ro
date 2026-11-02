@@ -9,6 +9,7 @@ class Shop:
     base_url: str
     platform: str             # "shopify" | "jsonld_sitemap" | "prestashop" | "gomag"
     sitemap: str = ""         # jsonld_sitemap: the products sitemap
+    collection: str = ""      # shopify: read only this collection instead of the whole catalogue
     listing_url: str = ""     # prestashop / gomag: the category listing the products we want
     detail_budget: int = 0    # prestashop / gomag: at most this many product pages per night
     detail_types: tuple = ()  # prestashop: product types worth a product-page visit
@@ -25,7 +26,10 @@ SHOPIFY_COOLDOWN = 20 * 60   # seconds between the end of one Shopify shop and t
 
 SHOPS = {s.key: s for s in [
     Shop("ludicus", "Ludicus", "https://ludicus.ro", "shopify", min_delay=SHOPIFY_DELAY),
-    Shop("redgoblin", "Red Goblin", "https://redgoblin.ro", "shopify", min_delay=SHOPIFY_DELAY),
+    # Red Goblin sells mostly comics and figurines (~45,000 products, 180 pages): only its
+    # Board Games collection (~5,300 products, 22 pages) is read.
+    Shop("redgoblin", "Red Goblin", "https://redgoblin.ro", "shopify", collection="board-games",
+         min_delay=SHOPIFY_DELAY),
     Shop("jocozaur", "Jocozaur", "https://jocozaur.ro", "shopify", min_delay=SHOPIFY_DELAY),
     Shop("idealboardgames", "Ideal Board Games", "https://idealboardgames.ro", "shopify", min_delay=SHOPIFY_DELAY),
     # robots.txt asks for Crawl-delay: 5; the session honours it automatically.
