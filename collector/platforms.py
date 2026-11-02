@@ -3,18 +3,57 @@
 A record is {"url": ..., "payload": {...}}: the payload is kept as the shop published it,
 trimmed of heavy fields we never use (descriptions, images), so the raw layer stays honest.
 """
+import fcntl
 import html as htmllib
 import json
+import logging
 import os
 import re
+import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
+from . import shops
 from .polite import PoliteSession
 from .shops import Shop
 
+log = logging.getLogger(__name__)
+
 SHOPIFY_PAGE_SIZE = 250            # the maximum Shopify allows
 SHOPIFY_DROP = ("body_html", "images", "options")
+
+
+@contextmanager
+def shopify_turn(name: str):
+    """One Shopify shop at a time, and a cool-down after the previous one.
+
+    Shopify blocks an IP for its shops all together, so the collect tasks of the Shopify
+    shops take turns through a lock file next to the barcode caches (all tasks run in the
+    same container). The file holds the time the last Shopify shop finished, failed or not:
+    a shop that was just blocked needs the pause most.
+    """
+    path = cache_dir() / "shopify_turn"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            log.info("%s: waiting for another Shopify shop to finish", name)
+            fcntl.flock(f, fcntl.LOCK_EX)
+        f.seek(0)
+        last = float(f.read().strip() or 0)
+        wait = last + shops.SHOPIFY_COOLDOWN - time.time()
+        if wait > 0:
+            log.info("%s: Shopify cool-down, starting in %d min", name, round(wait / 60))
+            time.sleep(wait)
+        try:
+            yield
+        finally:
+            f.seek(0)
+            f.truncate()
+            f.write(f"{time.time():.3f}\n")
+            f.flush()
 
 
 def shopify(shop: Shop, session: PoliteSession, limit: int | None = None) -> Iterator[dict]:
@@ -25,23 +64,24 @@ def shopify(shop: Shop, session: PoliteSession, limit: int | None = None) -> Ite
     """
     seen: set[int] = set()
     page = 1
-    while True:
-        r = session.get(f"{shop.base_url}/products.json",
-                        params={"limit": SHOPIFY_PAGE_SIZE, "page": page})
-        products = r.json().get("products", [])
-        new = [p for p in products if p["id"] not in seen]
-        for p in new:
-            seen.add(p["id"])
-            for k in SHOPIFY_DROP:
-                p.pop(k, None)
-            for v in p.get("variants", []):
-                v.pop("featured_image", None)
-            yield {"url": f"{shop.base_url}/products/{p['handle']}", "payload": p}
-            if limit and len(seen) >= limit:
+    with shopify_turn(shop.key):
+        while True:
+            r = session.get(f"{shop.base_url}/products.json",
+                            params={"limit": SHOPIFY_PAGE_SIZE, "page": page})
+            products = r.json().get("products", [])
+            new = [p for p in products if p["id"] not in seen]
+            for p in new:
+                seen.add(p["id"])
+                for k in SHOPIFY_DROP:
+                    p.pop(k, None)
+                for v in p.get("variants", []):
+                    v.pop("featured_image", None)
+                yield {"url": f"{shop.base_url}/products/{p['handle']}", "payload": p}
+                if limit and len(seen) >= limit:
+                    return
+            if len(products) < SHOPIFY_PAGE_SIZE or not new:
                 return
-        if len(products) < SHOPIFY_PAGE_SIZE or not new:
-            return
-        page += 1
+            page += 1
 
 
 LOC = re.compile(r"<loc>(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?</loc>")

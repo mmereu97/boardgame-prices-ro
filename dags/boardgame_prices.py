@@ -3,8 +3,9 @@
     collect (one task per shop, in parallel)  ->  load into PostgreSQL  ->  dbt build
 
 - Each shop is its own task: a shop that is down or rate-limits us is retried on its own,
-  and the others carry on. At most two run at once, and never two Shopify shops together:
-  Shopify rate-limits by IP across all the shops it hosts.
+  an hour later, and the others carry on. At most two run at once, and never two Shopify
+  shops together, with a cool-down between them: Shopify rate-limits by IP across all the
+  shops it hosts (collector.platforms.shopify_turn).
 - load and dbt run even if some shops failed ("all_done"): yesterday's prices stay valid
   for a shop that failed tonight (see mart_best_prices).
 - dbt build runs the models, the price-history snapshot and every test; a failing test
@@ -43,12 +44,12 @@ def today_dir() -> Path:
 )
 def boardgame_prices():
 
-    # At most two collections at once. Shopify rate-limits by IP across all its shops (HTTP 429
-    # on the NAS when four ran in parallel), so its shops, which come last in the order below,
-    # run one at a time.
+    # At most two collections at once. Shopify rate-limits by IP across all its shops, so its
+    # shops take turns with a 20-minute cool-down (a lock file, see shopify_turn), and a shop
+    # that failed is retried an hour later: a block lasted more than an hour on 02.11.2026.
     # map_index_template: the UI shows "collect [jocozaur]" instead of "collect [2]".
     @task(execution_timeout=timedelta(hours=4), max_active_tis_per_dagrun=2,
-          map_index_template="{{ shop_label }}")
+          retry_delay=timedelta(hours=1), map_index_template="{{ shop_label }}")
     def collect(shop: str) -> str:
         get_current_context()["shop_label"] = shop
         # barcodes read from product pages are remembered next to the collected files

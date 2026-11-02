@@ -75,6 +75,28 @@ def test_shopify_drops_heavy_fields_but_keeps_the_raw_record():
     assert rec["payload"]["variants"][0]["price"] == "10.00"
 
 
+def test_shopify_shops_take_turns_with_a_cool_down(monkeypatch):
+    # Blocked on 02.11.2026 after one shop: the next Shopify shop waits 20 minutes.
+    pauses = []
+    monkeypatch.setattr(platforms.time, "sleep", pauses.append)
+    list(platforms.shopify(SHOP, FakeSession([[product(1)]])))
+    assert pauses == []                          # nothing ran before it
+    list(platforms.shopify(SHOP, FakeSession([[product(2)]])))
+    assert len(pauses) == 1 and 19 * 60 < pauses[0] < 20 * 60 + 1
+
+
+def test_shopify_cool_down_counts_from_a_failed_shop_too(monkeypatch):
+    class Blocked429(FakeSession):
+        def get(self, url, params=None, **kw):
+            raise RuntimeError("429")
+    pauses = []
+    monkeypatch.setattr(platforms.time, "sleep", pauses.append)
+    with pytest.raises(RuntimeError):
+        list(platforms.shopify(SHOP, Blocked429([])))
+    list(platforms.shopify(SHOP, FakeSession([[product(1)]])))
+    assert len(pauses) == 1
+
+
 def test_polite_session_refuses_what_robots_txt_disallows(monkeypatch):
     s = PoliteSession(min_delay=0)
 

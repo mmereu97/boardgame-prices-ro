@@ -15,9 +15,12 @@ class Shop:
     min_delay: float = 2.0
 
 
-# Shopify rate-limits its public catalogue by IP across all its shops (HTTP 429 seen in
-# testing), so its shops get a longer pause and never run in parallel (see the DAG).
-SHOPIFY_DELAY = 10.0
+# Shopify rate-limits its public catalogue by IP across all its shops: on 02.11.2026, with
+# 10 s between pages and one shop at a time, the NAS was still blocked (HTTP 429) for more
+# than an hour after Ludicus. What counts is how much one IP reads in total, so its shops
+# get 30 s between pages and a cool-down between two shops (see platforms.shopify).
+SHOPIFY_DELAY = 30.0
+SHOPIFY_COOLDOWN = 20 * 60   # seconds between the end of one Shopify shop and the next
 
 
 SHOPS = {s.key: s for s in [
