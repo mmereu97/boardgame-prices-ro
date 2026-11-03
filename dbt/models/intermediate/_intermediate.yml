@@ -21,6 +21,8 @@ unit_tests:
         rows:
           - {shop: ludicus, offer_id: "ludicus:1", title: "Dixit - Joc de societate, editie in limba romana", category: "Joc de societate", sku: "5940571130384", price: 159}
           - {shop: jocozaur, offer_id: "jocozaur:2", title: "Dixit, román nyelvű társasjáték", category: "Board Games", sku: "5940571130385", price: 149}
+          - {shop: jocozaur, offer_id: "jocozaur:10", title: "Az erdő: Smoky Mountains, magyar nyelvű társasjáték", category: "Board Games", sku: null, price: 199}
+          - {shop: jocozaur, offer_id: "jocozaur:11", title: "Dixit, magyar és román nyelvű társasjáték", category: "Board Games", sku: null, price: 149}
           - {shop: redgoblin, offer_id: "redgoblin:3", title: "Ticket to Ride: Europe - Board Game (EN)", category: "Jocuri", sku: "AB-1234", price: 249}
           - {shop: redgoblin, offer_id: "redgoblin:4", title: "Cana Pokemon - Pikachu", category: "Figurine & Jucarii", sku: "55011", price: 69}
       - input: ref('stg_jsonld_offers')
@@ -41,6 +43,8 @@ unit_tests:
       rows:
         - {offer_id: "ludicus:1", match_title: "dixit", ean: "5940571130384", edition_language: ro, is_board_game: true}
         - {offer_id: "jocozaur:2", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}
+        - {offer_id: "jocozaur:10", match_title: "az erdo smoky mountains", ean: null, edition_language: hu, is_board_game: true}
+        - {offer_id: "jocozaur:11", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}
         - {offer_id: "redgoblin:3", match_title: "ticket to ride europe", ean: null, edition_language: en, is_board_game: true}
         - {offer_id: "redgoblin:4", match_title: "cana pokemon pikachu", ean: null, edition_language: null, is_board_game: false}
         - {offer_id: "pionul:5", match_title: "dixit", ean: null, edition_language: ro, is_board_game: true}

@@ -36,7 +36,7 @@ language sql immutable as $$
     select nullif(trim(regexp_replace(regexp_replace(regexp_replace(regexp_replace(
         lower(public.unaccent(coalesce(title, ''))),
         -- language and edition labels: the language is kept separately (see edition_language)
-        '\(?\m(editie|editia|versiunea|versiune)?\s*(in\s+)?(limba|lb\.?)\s+(romana|engleza)\)?|\((ro|en|eng)\)|\m(ro|en)$|\m(roman|angol)\s+nyelvu\M|\(?\m(romanian|english|german|french|polish|multilingual)\s+edition\)?', ' ', 'g'),
+        '\(?\m(editie|editia|versiunea|versiune)?\s*(in\s+)?(limba|lb\.?)\s+(romana|engleza|maghiara)\)?|\((ro|en|eng|hu)\)|\m(ro|en|hu)$|\m((roman|angol|magyar)\s+(es\s+(roman|angol|magyar)\s+)?nyelvu|tobbnyelvu)\M|\(?\m(romanian|english|hungarian|german|french|polish|multilingual)\s+edition\)?', ' ', 'g'),
         -- generic product words that shops add in front of or after the name (Romanian, English,
         -- and Hungarian: Jocozaur publishes many titles in Hungarian)
         '\m(joc|jocul|jocuri)\s+(de\s+)?(societate|petrecere|carti|familie|strategie|board|baza)\M|\mboard\s*games?\M|\m(base|core)\s+game\M|\m(tarsasjatek|kartyajatek|jubileumi\s+kiadas)\M', ' ', 'g'),

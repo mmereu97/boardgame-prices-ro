@@ -46,3 +46,23 @@ models:
         data_tests: [unique, not_null]
       - name: best_price
         data_tests: [not_null]
+
+unit_tests:
+  - name: hungarian_editions_stay_out_of_the_marts
+    description: Offers recognised as Hungarian editions are left out of the daily fact; Romanian and unmarked ones stay.
+    model: fct_offer_prices
+    given:
+      - input: ref('int_offers')
+        rows:
+          - {offer_id: "jocozaur:1", shop: jocozaur, collected_on: 2026-11-03, title: "Dixit, román nyelvű társasjáték", edition_language: ro, is_board_game: true, price: 149, available: true}
+          - {offer_id: "jocozaur:2", shop: jocozaur, collected_on: 2026-11-03, title: "Az erdő, magyar nyelvű társasjáték", edition_language: hu, is_board_game: true, price: 199, available: true}
+          - {offer_id: "jocozaur:3", shop: jocozaur, collected_on: 2026-11-03, title: "Mikado, többnyelvű társasjáték", edition_language: null, is_board_game: true, price: 39, available: true}
+      - input: ref('int_offer_game_keys')
+        rows:
+          - {offer_id: "jocozaur:1", game_key: "title:dixit|ro", match_method: title}
+          - {offer_id: "jocozaur:2", game_key: "title:az erdo|hu", match_method: title}
+          - {offer_id: "jocozaur:3", game_key: "title:mikado|?", match_method: title}
+    expect:
+      rows:
+        - {offer_id: "jocozaur:1"}
+        - {offer_id: "jocozaur:3"}

@@ -1,8 +1,10 @@
 -- All shops in one shape, plus what the matching needs:
 --   ean               a real barcode (check digit verified) if the shop exposes one
 --   match_title       the title reduced to the game's name (util.match_title)
---   edition_language  ro / en when the title says so: a Romanian and an English edition
---                     are different products and must not be matched together
+--   edition_language  ro / en / hu when the title says so: a Romanian and an English edition
+--                     are different products and must not be matched together; Hungarian
+--                     editions (Jocozaur sells many) are recognised so the marts can leave
+--                     them out. A bilingual Romanian-Hungarian edition counts as Romanian.
 --   is_board_game     from the reference/board_game_categories seed; when several patterns
 --                     match a category, the most specific (longest) one wins
 with unioned as (
@@ -40,6 +42,7 @@ select
     case
         when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+romana|\(ro\)|\mro$|editie romaneasca|romanian edition|roman nyelvu' then 'ro'
         when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+engleza|\(en\)|\(eng\)|\men$|english edition|angol nyelvu' then 'en'
+        when public.unaccent(lower(title)) ~ '(limba|lb\.?)\s+maghiara|\(hu\)|\mhu$|hungarian edition|magyar nyelvu' then 'hu'
     end                                                   as edition_language,
     price,
     list_price,

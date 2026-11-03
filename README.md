@@ -39,7 +39,7 @@ Shops don't share product ids, and their titles disagree. Each offer is assigned
 2. **Title → barcode.** An offer without a barcode joins the game of an offer with the **same normalised title and the same edition language** that has one.
 3. **Title.** No barcode anywhere: the game is identified by its normalised title and language.
 
-`util.match_title()` reduces a title to the game's name: lower case, no diacritics, no *"joc de societate"*, *"editie in limba romana"*, *"board game"*, *"base game"*, nor their Hungarian equivalents (one shop publishes titles in Hungarian). **The edition language is kept separately**: a Romanian and an English edition are different products and are never merged.
+`util.match_title()` reduces a title to the game's name: lower case, no diacritics, no *"joc de societate"*, *"editie in limba romana"*, *"board game"*, *"base game"*, nor their Hungarian equivalents (one shop publishes titles in Hungarian). **The edition language is kept separately**: a Romanian and an English edition are different products and are never merged. Hungarian editions (*"magyar nyelvű"*) are recognised too and left out of the marts, since nobody here plays in Hungarian; they stay in the raw layer. A bilingual Hungarian-Romanian edition counts as Romanian.
 
 Both rules are covered by **dbt unit tests** with real title variants, and a data test guarantees that a barcode never ends up in two games.
 
