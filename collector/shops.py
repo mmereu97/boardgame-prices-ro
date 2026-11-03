@@ -31,7 +31,10 @@ SHOPS = {s.key: s for s in [
     # Board Games collection (~5,300 products, 22 pages) is read.
     Shop("redgoblin", "Red Goblin", "https://redgoblin.ro", "shopify", collection="board-games",
          min_delay=SHOPIFY_DELAY),
-    Shop("jocozaur", "Jocozaur", "https://jocozaur.ro", "shopify", min_delay=SHOPIFY_DELAY),
+    # Jocozaur (the Romanian shop of Hungary's Játszma) also sells toys, LEGO and books: only
+    # its "Összes társasjáték" (all board games) collection is read, about 5,200 of ~6,000.
+    Shop("jocozaur", "Jocozaur", "https://jocozaur.ro", "shopify", collection="tarsasjatekok",
+         min_delay=SHOPIFY_DELAY),
     Shop("idealboardgames", "Ideal Board Games", "https://idealboardgames.ro", "shopify", min_delay=SHOPIFY_DELAY),
     # robots.txt asks for Crawl-delay: 5; the session honours it automatically.
     Shop("pionul", "Pionul", "https://www.pionul.ro", "jsonld_sitemap",
