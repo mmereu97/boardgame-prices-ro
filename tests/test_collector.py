@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 import pytest
+import requests
 
 from collector import platforms
 from collector.polite import Blocked, PoliteSession
@@ -171,6 +172,35 @@ def regatul(budget=400):
     from collector.shops import SHOPS
     from dataclasses import replace
     return replace(SHOPS["regatuljocurilor"], detail_budget=budget)
+
+
+class GonePage(PrestaShopSession):
+    """Like the real night of 03.11.2026: some product pages answer 404."""
+    def __init__(self, gone):
+        super().__init__()
+        self.gone = gone
+
+    def get(self, url, params=None, headers=None, **kw):
+        if params is None and self.product_pages < self.gone:
+            self.product_pages += 1
+            r = requests.Response(); r.status_code = 404; r.url = url
+            raise requests.HTTPError("404 Client Error", response=r)
+        return super().get(url, params, headers, **kw)
+
+
+def test_a_missing_product_page_is_skipped_not_fatal():
+    session = GonePage(gone=1)
+    records = list(platforms.prestashop(regatul(), session))
+    assert len(records) == 5                          # the whole listing is still collected
+    assert records[0]["payload"]["gtin13"] is None    # the first game's page was gone
+    assert records[1]["payload"]["gtin13"]            # the next ones still get their barcode
+    assert platforms.BarcodeCache(platforms.cache_dir() / "regatuljocurilor_barcodes.json").get(records[0]["payload"]["id_product"]) is None
+
+
+def test_many_broken_product_pages_still_stop_the_shop(monkeypatch):
+    monkeypatch.setattr(platforms, "DETAIL_MAX_FAILED", 2)
+    with pytest.raises(requests.HTTPError):
+        list(platforms.prestashop(regatul(), GonePage(gone=10)))
 
 
 def test_prestashop_reads_the_listing_and_fetches_barcodes_only_for_games(tmp_path, monkeypatch):

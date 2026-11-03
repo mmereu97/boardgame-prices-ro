@@ -57,6 +57,7 @@ Both rules are covered by **dbt unit tests** with real title variants, and a dat
 ## Reliability
 
 - **Idempotent loads:** re-loading a shop's day replaces it, so a re-run never duplicates rows.
+- A product page that is gone (HTTP 404, seen at Regatul Jocurilor on the third night) or broken is skipped with a warning instead of failing the whole shop; more than 20 in one night still stops the task, because then the shop itself has a problem.
 - A shop that fails tonight is retried on its own, an hour later, while the others carry on. The dashboard keeps that shop's **last known prices** instead of losing them.
 - Mapped tasks are labelled with the shop (`collect [jocozaur]`). Airflow identifies them by position, so the shop order must not change while a run is in progress: on the first night a reordering mid-run made a retry collect the wrong shop.
 - `dbt build` runs every model, the snapshot and every test. **A failing test fails the run**, so bad data never reaches the dashboard silently.

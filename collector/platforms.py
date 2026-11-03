@@ -14,6 +14,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import requests
+
 from . import shops
 from .polite import PoliteSession
 from .shops import Shop
@@ -85,6 +87,27 @@ def shopify(shop: Shop, session: PoliteSession, limit: int | None = None) -> Ite
             page += 1
 
 
+DETAIL_MAX_FAILED = 20   # this many broken product pages in one night means the shop has a problem
+
+
+def get_detail(session: PoliteSession, url: str, failed: list) -> str | None:
+    """A product page, or None when it is gone (404) or broken.
+
+    Product pages only add details (barcodes, schema.org data). On 03.11.2026 one product
+    listed by Regatul Jocurilor answered 404, and the whole shop failed three times over
+    it; now the page is skipped. Many failures in one night still stop the task.
+    """
+    try:
+        return session.get(url).text
+    except requests.HTTPError as e:
+        failed.append(url)
+        status = e.response.status_code if e.response is not None else "?"
+        log.warning("%s -> %s, product page skipped (%d this run)", url, status, len(failed))
+        if len(failed) > DETAIL_MAX_FAILED:
+            raise
+        return None
+
+
 LOC = re.compile(r"<loc>(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?</loc>")
 LDJSON = re.compile(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', re.S)
 
@@ -105,10 +128,12 @@ def product_jsonld(html: str) -> dict | None:
 def jsonld_sitemap(shop: Shop, session: PoliteSession, limit: int | None = None) -> Iterator[dict]:
     """Product URLs from the sitemap, then the schema.org Product data on each page."""
     urls = LOC.findall(session.get(shop.sitemap).text)
+    failed: list = []
     for i, url in enumerate(urls):
         if limit and i >= limit:
             return
-        product = product_jsonld(session.get(url).text)
+        page = get_detail(session, url, failed)
+        product = product_jsonld(page) if page is not None else None
         if product:
             product.pop("description", None)
             yield {"url": url, "payload": product}
@@ -155,6 +180,7 @@ def prestashop(shop: Shop, session: PoliteSession, limit: int | None = None) -> 
     """
     cache = BarcodeCache(cache_dir() / f"{shop.key}_barcodes.json")
     budget = shop.detail_budget
+    failed: list = []
     seen: set = set()
     page = 1
     try:
@@ -168,9 +194,11 @@ def prestashop(shop: Shop, session: PoliteSession, limit: int | None = None) -> 
                 rec = {k: p.get(k) for k in PRESTASHOP_KEEP}
                 code = cache.get(p["id_product"])
                 if code is None and budget > 0 and p.get("reference") in shop.detail_types:
-                    detail = product_jsonld(session.get(p["url"]).text) or {}
-                    code = detail.get("gtin13") or detail.get("gtin") or ""
-                    cache.put(p["id_product"], code)
+                    page_html = get_detail(session, p["url"], failed)
+                    if page_html is not None:   # a missing page is not remembered: it may come back
+                        detail = product_jsonld(page_html) or {}
+                        code = detail.get("gtin13") or detail.get("gtin") or ""
+                        cache.put(p["id_product"], code)
                     budget -= 1
                     if budget % 50 == 0:
                         cache.save()
@@ -229,6 +257,7 @@ def gomag(shop: Shop, session: PoliteSession, limit: int | None = None) -> Itera
     """
     cache = BarcodeCache(cache_dir() / f"{shop.key}_barcodes.json")
     budget = shop.detail_budget
+    failed: list = []
     seen: set = set()
     page, last = 1, None
     try:
@@ -241,9 +270,11 @@ def gomag(shop: Shop, session: PoliteSession, limit: int | None = None) -> Itera
                 seen.add(b["id"])
                 code = cache.get(b["id"])
                 if code is None and budget > 0 and not ACCESSORY_WORDS.search(b["name"]):
-                    detail = product_jsonld(session.get(b["url"]).text) or {}
-                    code = detail.get("gtin13") or detail.get("gtin") or ""
-                    cache.put(b["id"], code)
+                    page_html = get_detail(session, b["url"], failed)
+                    if page_html is not None:   # a missing page is not remembered: it may come back
+                        detail = product_jsonld(page_html) or {}
+                        code = detail.get("gtin13") or detail.get("gtin") or ""
+                        cache.put(b["id"], code)
                     budget -= 1
                     if budget % 50 == 0:
                         cache.save()
