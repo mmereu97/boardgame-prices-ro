@@ -115,6 +115,48 @@ def test_shopify_cool_down_counts_from_a_failed_shop_too(monkeypatch):
     assert len(pauses) == 1
 
 
+class BlockedAt(FakeSession):
+    """Answers 429 (or `status`) to the listed calls, counted from 1, and the queued pages otherwise."""
+    def __init__(self, pages, blocked, status=429):
+        super().__init__(pages)
+        self.blocked, self.status, self.n = set(blocked), status, 0
+
+    def get(self, url, params=None, **kw):
+        self.n += 1
+        if self.n in self.blocked:
+            self.calls.append(params)
+            raise requests.HTTPError(response=type("R", (), {"status_code": self.status})())
+        return super().get(url, params, **kw)
+
+
+def test_shopify_keeps_its_pages_and_continues_after_a_block(monkeypatch):
+    # 06.11.2026: 429 at page 8, and each try started over. The pages already read are not lost.
+    pauses = []
+    monkeypatch.setattr(platforms.time, "sleep", pauses.append)
+    monkeypatch.setattr(platforms, "SHOPIFY_PAGE_SIZE", 1)
+    session = BlockedAt([[product(1)], [product(2)], []], blocked=[2])
+    records = list(platforms.shopify(SHOP, session))
+    assert [r["payload"]["id"] for r in records] == [1, 2]
+    assert [c["page"] for c in session.calls] == [1, 2, 2, 3]
+    assert pauses == [platforms.shops.SHOPIFY_BLOCK_PAUSE]
+
+
+def test_shopify_gives_up_after_too_many_pauses(monkeypatch):
+    pauses = []
+    monkeypatch.setattr(platforms.time, "sleep", pauses.append)
+    with pytest.raises(requests.HTTPError):
+        list(platforms.shopify(SHOP, BlockedAt([], blocked=range(1, 50))))
+    assert len(pauses) == platforms.shops.SHOPIFY_BLOCK_PAUSES
+
+
+def test_shopify_does_not_pause_for_other_errors(monkeypatch):
+    pauses = []
+    monkeypatch.setattr(platforms.time, "sleep", pauses.append)
+    with pytest.raises(requests.HTTPError):
+        list(platforms.shopify(SHOP, BlockedAt([], blocked=[1], status=500)))
+    assert pauses == []
+
+
 def test_polite_session_refuses_what_robots_txt_disallows(monkeypatch):
     s = PoliteSession(min_delay=0)
 

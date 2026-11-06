@@ -66,11 +66,22 @@ def shopify(shop: Shop, session: PoliteSession, limit: int | None = None) -> Ite
     """
     seen: set[int] = set()
     page = 1
+    pauses = 0
     path = f"/collections/{shop.collection}/products.json" if shop.collection else "/products.json"
     with shopify_turn(shop.key):
         while True:
-            r = session.get(f"{shop.base_url}{path}",
-                            params={"limit": SHOPIFY_PAGE_SIZE, "page": page})
+            try:
+                r = session.get(f"{shop.base_url}{path}",
+                                params={"limit": SHOPIFY_PAGE_SIZE, "page": page})
+            except requests.HTTPError as e:
+                if e.response is None or e.response.status_code != 429 or pauses >= shops.SHOPIFY_BLOCK_PAUSES:
+                    raise
+                # the pages so far stay; the turn is kept too, since the block covers every Shopify shop
+                pauses += 1
+                log.warning("%s: blocked at page %d, pause %d of %d: continuing in %d min", shop.key, page,
+                            pauses, shops.SHOPIFY_BLOCK_PAUSES, shops.SHOPIFY_BLOCK_PAUSE // 60)
+                time.sleep(shops.SHOPIFY_BLOCK_PAUSE)
+                continue
             products = r.json().get("products", [])
             new = [p for p in products if p["id"] not in seen]
             for p in new:

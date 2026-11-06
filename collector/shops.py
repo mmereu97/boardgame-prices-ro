@@ -23,6 +23,12 @@ class Shop:
 # later that morning, at 30 s, two pages went through and the third got a 429 again.
 SHOPIFY_DELAY = 60.0
 SHOPIFY_COOLDOWN = 20 * 60   # seconds between the end of one Shopify shop and the next
+# On 06.11.2026 Jocozaur and Red Goblin (21-22 pages each) failed all three tries, the last one
+# with a 429 at page 8 for both, while Ludicus (9 pages) passed. Each try started over from page 1.
+# A shop now keeps its pages, waits and continues. Four pauses leave five stretches of about
+# 7 pages, and fit in the task's 4-hour limit.
+SHOPIFY_BLOCK_PAUSE = 30 * 60
+SHOPIFY_BLOCK_PAUSES = 4
 
 
 SHOPS = {s.key: s for s in [
